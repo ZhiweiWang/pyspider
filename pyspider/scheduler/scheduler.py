@@ -158,9 +158,9 @@ class Scheduler(object):
         3: 12*60*60,
         '': 24*60*60
     }
-    FAIL_PAUSE_NUM = 10
-    PAUSE_TIME = 5*60
-    UNPAUSE_CHECK_NUM = 3
+    FAIL_PAUSE_NUM = 50
+    PAUSE_TIME = 30
+    UNPAUSE_CHECK_NUM = 1
 
     TASK_PACK = 1
     STATUS_PACK = 2  # current not used
@@ -705,6 +705,7 @@ class Scheduler(object):
 
         def update_project():
             self._force_update_project = True
+            self._update_projects()
         application.register_function(update_project, 'update_project')
 
         def get_active_tasks(project=None, limit=100):

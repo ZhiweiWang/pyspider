@@ -6,22 +6,22 @@
 # Created on 2014-02-23 00:19:06
 
 
+import datetime
+import inspect
+import socket
 import sys
 import time
-import socket
-import inspect
-import datetime
 import traceback
-from flask import render_template, request, json
+from flask import json, jsonify, render_template, request
 
 try:
     import flask_login as login
 except ImportError:
     from flask.ext import login
 
-from pyspider.libs import utils, sample_handler, dataurl
+from pyspider.libs import dataurl, sample_api_handler, sample_handler, utils
 from pyspider.libs.response import rebuild_response
-from pyspider.processor.project_module import ProjectManager, ProjectFinder
+from pyspider.processor.project_module import ProjectFinder, ProjectManager
 from .app import app
 
 default_task = {
@@ -33,6 +33,102 @@ default_task = {
     },
 }
 default_script = inspect.getsource(sample_handler)
+default_api_script = inspect.getsource(sample_api_handler)
+
+
+@app.route('/api/', methods=['POST'])
+def api():
+    project = request.form['project']
+    url = request.form['url']
+    parser = request.form['parser']
+
+    projectdb = app.config['projectdb']
+    if not projectdb.verify_project_name(project):
+        ret = {
+            'code': 400,
+            'error': 'project name is not allowed!',
+        }
+        return jsonify(ret)
+    # script = request.form['script']
+    project_info = projectdb.get(project, fields=['name', 'status', 'group'])
+    if project_info and 'lock' in projectdb.split_group(project_info.get('group')) \
+            and not login.current_user.is_active():
+        return app.login_response
+
+    updated_project_info = False
+    if project_info:
+        print('get project', project_info)
+        if project_info['status'] != 'RUNNING':
+            info = {
+                # 'script': script,
+                'status': 'RUNNING',
+            }
+            projectdb.update(project, info)
+            updated_project_info = True
+    else:
+        script = (default_api_script
+                  .replace('__DATE__', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                  .replace('__PROJECT_NAME__', project)
+                  .replace('__START_URL__', url or '__START_URL__'))
+        info = {
+            'name': project,
+            'script': script,
+            'status': 'RUNNING',
+            'rate': app.config.get('max_rate', 1),
+            'burst': app.config.get('max_burst', 3),
+        }
+        projectdb.insert(project, info)
+        updated_project_info = True
+
+    if updated_project_info:
+        rpc = app.config['scheduler_rpc']
+        if rpc is not None:
+            try:
+                rpc.update_project()
+            except socket.error as e:
+                app.logger.warning('connect to scheduler rpc error: %r', e)
+                ret = {
+                    'code': 400,
+                    'error': 'rpc error',
+                }
+                return jsonify(ret)
+
+    project_manager = ProjectManager(projectdb, {})
+    module = project_manager.get(project)
+
+    instance = module['instance']
+    if not hasattr(instance, parser):
+        ret = {
+            'code': 404,
+            'error': 'wrong parser: %s' % parser,
+        }
+        return jsonify(ret)
+    instance._reset()
+    task = instance.crawl(url=url, callback=getattr(instance, parser))
+    task['status'] = 1
+    # print(task)
+
+    # taskdb = app.config['taskdb']
+    # task2 = taskdb.insert(project, task['taskid'], task)
+    # # task2 = taskdb.get_task(project, task['taskid'])
+    # print(task2)
+
+    rpc = app.config['scheduler_rpc']
+    if rpc is not None:
+        try:
+            rpc.newtask(task)
+        except socket.error as e:
+            app.logger.warning('connect to scheduler rpc error: %r', e)
+            ret = {
+                'code': 400,
+                'error': 'rpc error',
+            }
+            return jsonify(ret)
+
+    ret = {
+        'code': 200
+    }
+    return jsonify(ret)
 
 
 @app.route('/debug/<project>', methods=['GET', 'POST'])
