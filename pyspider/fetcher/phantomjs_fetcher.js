@@ -51,6 +51,12 @@ if (system.args.length !== 2) {
 
     // create and set page
     var page = webpage.create();
+    if (fetch.proxy) {
+      if (fetch.proxy.indexOf('://') == -1){
+        fetch.proxy = 'http://' + fetch.proxy
+      }
+      page.setProxy(fetch.proxy);
+    }
     page.onConsoleMessage = function(msg) {
       console.log('console: ' + msg);
     };
@@ -236,7 +242,7 @@ if (system.args.length !== 2) {
   });
 
   if (service) {
-    console.log('Web server running on port ' + port);
+    console.log('phantomjs fetcher running on port ' + port);
   } else {
     console.log('Error: Could not create web server listening on port ' + port);
     phantom.exit();
