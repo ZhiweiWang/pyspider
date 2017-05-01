@@ -22,3 +22,7 @@ kombu
 psycopg2
 elasticsearch
 tblib
+boto3
+requests-toolbelt
+python-dateutil
+html2text
