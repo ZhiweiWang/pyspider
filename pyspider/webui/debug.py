@@ -40,7 +40,7 @@ default_api_script = inspect.getsource(sample_api_handler)
 @app.route('/api/', methods=['POST'])
 def api():
     data = request.get_json()
-    app.logger.error(str(data))
+    # app.logger.error(str(data))
     project = data['project']
     url = data['url']
     parser = data.get('parser', 'page_parser')
@@ -72,7 +72,7 @@ def api():
 
     updated_project_info = False
     if project_info:
-        app.logger.warning('get project', project_info)
+        # app.logger.warning('get project', project_info)
         if project_info['status'] != 'RUNNING':
             info = {
                 # 'script': script,
@@ -126,7 +126,7 @@ def api():
                           fetch_type=fetch_type, validate_cert=False,
                           )
     task['status'] = 1
-    app.logger.error(str(task))
+    # app.logger.error(str(task))
 
     taskdb = app.config['taskdb']
     old_task = taskdb.get_task(project, task['taskid'])
