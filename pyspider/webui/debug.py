@@ -53,6 +53,7 @@ def api():
     md5.update(json.dumps(cookies))
     md5.update(json.dumps(headers))
     md5.update(user_agent)
+    md5.update(json.dumps(extra_save))
 
     projectdb = app.config['projectdb']
     if not projectdb.verify_project_name(project):
