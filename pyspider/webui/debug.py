@@ -39,16 +39,17 @@ default_api_script = inspect.getsource(sample_api_handler)
 
 @app.route('/api/', methods=['POST'])
 def api():
-    app.logger.warning(str(request.form))
-    project = request.form['project']
-    url = request.form['url']
-    parser = request.form.get('parser', 'page_parser')
-    fetch_type = request.form.get('fetch_type', None)
-    user_agent = request.form.get(
+    data = request.get_json()
+    app.logger.error(str(data))
+    project = data['project']
+    url = data['url']
+    parser = data.get('parser', 'page_parser')
+    fetch_type = data.get('fetch_type', None)
+    user_agent = data.get(
         'user_agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.138 Safari/537.36')
-    headers = request.form.get('headers', {})
-    cookies = request.form.get('cookies', {})
-    extra_save = request.form.get('extra_save', {})
+    headers = data.get('headers', {})
+    cookies = data.get('cookies', {})
+    extra_save = data.get('extra_save', {})
 
     md5 = hashlib.md5()
     md5.update(json.dumps(cookies))
@@ -125,10 +126,15 @@ def api():
                           fetch_type=fetch_type, validate_cert=False,
                           )
     task['status'] = 1
-    app.logger.warning(str(task))
+    app.logger.error(str(task))
 
-    # taskdb = app.config['taskdb']
-    # task2 = taskdb.insert(project, task['taskid'], task)
+    taskdb = app.config['taskdb']
+    old_task = taskdb.get_task(project, task['taskid'])
+    if old_task:
+        taskdb.update(project, task['taskid'], task)
+    else:
+        taskdb.insert(project, task['taskid'], task)
+    # app.logger.error(str(new_task))
     # # task2 = taskdb.get_task(project, task['taskid'])
     # print(task2)
 
