@@ -7,6 +7,7 @@
 
 
 import datetime
+import hashlib
 import inspect
 import socket
 import sys
@@ -40,7 +41,18 @@ default_api_script = inspect.getsource(sample_api_handler)
 def api():
     project = request.form['project']
     url = request.form['url']
-    parser = request.form['parser']
+    parser = request.form.get('parser', 'page_parser')
+    fetch_type = request.form.get('fetch_type', None)
+    user_agent = request.form.get(
+        'user_agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.138 Safari/537.36')
+    headers = request.form.get('headers', {})
+    cookies = request.form.get('cookies', {})
+    extra_save = request.form.get('extra_save', {})
+
+    md5 = hashlib.md5()
+    md5.update(json.dumps(cookies))
+    md5.update(json.dumps(headers))
+    md5.update(user_agent)
 
     projectdb = app.config['projectdb']
     if not projectdb.verify_project_name(project):
@@ -100,11 +112,16 @@ def api():
     if not hasattr(instance, parser):
         ret = {
             'code': 404,
-            'error': 'wrong parser: %s' % parser,
+            'error': 'request with wrong parser: %s' % parser,
         }
         return jsonify(ret)
     instance._reset()
-    task = instance.crawl(url=url, callback=getattr(instance, parser))
+    task = instance.crawl(url=url, callback=getattr(instance, parser),
+                          user_agent=user_agent, retries=5, age=3,
+                          headers=headers, cookies=cookies,
+                          save=extra_save, itag=md5.hexdigest(),
+                          fetch_type=fetch_type,
+                          )
     task['status'] = 1
     # print(task)
 

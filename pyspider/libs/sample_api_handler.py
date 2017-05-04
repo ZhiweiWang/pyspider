@@ -3,9 +3,11 @@
 # Created on __DATE__
 # Project: __PROJECT_NAME__
 
+import re
 from pyspider.libs.base_handler import BaseHandler
-from pyspider.libs.utils_api import save_response, save_result
 # catch_status_code_error, config, every
+from pyspider.libs.utils_api import save_response, save_result
+import requests
 
 
 class Handler(BaseHandler):
