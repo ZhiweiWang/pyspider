@@ -45,9 +45,9 @@ def save_result(func):
         s3 = boto3.resource('s3')
         file = 'html/' + base64.urlsafe_b64encode(result['orig_url'])
         result['file'] = file
-        res = s3.Object('nonda.spider', file).put(ACL='public-read', Body=content,
-                                                  ContentType=content_type,)
-        assert res['ResponseMetadata']['HTTPStatusCode'] == 200, str(res)
+        s3.Object('nonda.spider', file).put(ACL='public-read', Body=content,
+                                            ContentType=content_type,)
+        # assert res['ResponseMetadata']['HTTPStatusCode'] == 200, str(res)
 
         function = func.__get__(self, self.__class__)
         ret = function(result)
