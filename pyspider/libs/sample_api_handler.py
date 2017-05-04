@@ -3,6 +3,7 @@
 # Created on __DATE__
 # Project: __PROJECT_NAME__
 
+import json
 import re
 from pyspider.libs.base_handler import BaseHandler
 # catch_status_code_error, config, every

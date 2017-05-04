@@ -120,10 +120,10 @@ def api():
                           user_agent=user_agent, retries=5, age=3,
                           headers=headers, cookies=cookies,
                           save=extra_save, itag=md5.hexdigest(),
-                          fetch_type=fetch_type,
+                          fetch_type=fetch_type, validate_cert=False,
                           )
     task['status'] = 1
-    # print(task)
+    print(task)
 
     # taskdb = app.config['taskdb']
     # task2 = taskdb.insert(project, task['taskid'], task)
