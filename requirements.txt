@@ -22,7 +22,8 @@ kombu
 psycopg2
 elasticsearch
 tblib
-boto3
+#boto3
+git+git://github.com/boto/boto3.git@develop
 requests-toolbelt
 python-dateutil
 html2text

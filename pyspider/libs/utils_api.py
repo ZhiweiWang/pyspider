@@ -35,7 +35,7 @@ def save_result(func):
             return
         print('------------------')
         print(result['orig_url'], result['status_code'], result['url'],
-              result['title'], result['extra_save'], result['json'])
+              result['title'], result['extra_save'])
         content = result.pop('content')
         content_type = 'text/html'
         json_data = result.pop('json')
@@ -45,11 +45,10 @@ def save_result(func):
         s3 = boto3.resource('s3')
         file = 'html/' + base64.urlsafe_b64encode(result['orig_url'])
         result['file'] = file
+        function = func.__get__(self, self.__class__)
+        ret = function(result)
         s3.Object('nonda.spider', file).put(ACL='public-read', Body=content,
                                             ContentType=content_type,)
         # assert res['ResponseMetadata']['HTTPStatusCode'] == 200, str(res)
-
-        function = func.__get__(self, self.__class__)
-        ret = function(result)
         return ret
     return wrapper
