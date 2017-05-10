@@ -5,7 +5,7 @@
 
 import json
 import re
-from pyspider.libs.base_handler import BaseHandler
+from pyspider.libs.base_handler import BaseHandler, every
 # catch_status_code_error, config, every
 from pyspider.libs.utils_api import save_response, save_result
 import requests

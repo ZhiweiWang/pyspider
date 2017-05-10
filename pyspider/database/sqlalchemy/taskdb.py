@@ -12,7 +12,7 @@ import json
 import sqlalchemy.exc
 
 from sqlalchemy import (create_engine, MetaData, Table, Column, Index,
-                        Integer, String, Float, LargeBinary, func)
+                        Integer, String, Float, LargeBinary, func, Text)
 from sqlalchemy.engine.url import make_url
 from pyspider.libs import utils
 from pyspider.database.base.taskdb import TaskDB as BaseTaskDB
@@ -34,6 +34,12 @@ class TaskDB(SplitTableMixin, BaseTaskDB):
                            Column('track', LargeBinary),
                            Column('lastcrawltime', Float(32)),
                            Column('updatetime', Float(32)),
+                           Column('callback_success', Integer),
+                           Column('callback_time', Float(32)),
+                           Column('callback_time_next', Float(32)),
+                           Column('callback_url', String(1024)),
+                           Column('expire', Integer),
+                           Column('expire_time', Float(32)),
                            mysql_engine='InnoDB',
                            mysql_charset='utf8'
                            )

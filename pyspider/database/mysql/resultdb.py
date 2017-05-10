@@ -39,7 +39,8 @@ class ResultDB(MySQLMixin, SplitTableMixin, BaseResultDB, BaseDB):
             `taskid` varchar(64) PRIMARY KEY,
             `url` varchar(1024),
             `result` MEDIUMBLOB,
-            `updatetime` double(16, 4)
+            `updatetime` double(16, 4),
+            `content` TEXT
             ) ENGINE=InnoDB CHARSET=utf8''' % self.escape(tablename))
 
     def _parse(self, data):
@@ -48,11 +49,15 @@ class ResultDB(MySQLMixin, SplitTableMixin, BaseResultDB, BaseDB):
                 data[key] = utils.text(value)
         if 'result' in data:
             data['result'] = json.loads(data['result'])
+        if 'content' in data:
+            data['content'] = json.loads(data['content'])
         return data
 
     def _stringify(self, data):
         if 'result' in data:
             data['result'] = json.dumps(data['result'])
+        if 'content' in data:
+            data['content'] = json.dumps(data['content'])
         return data
 
     def save(self, project, taskid, url, result):
@@ -64,6 +69,7 @@ class ResultDB(MySQLMixin, SplitTableMixin, BaseResultDB, BaseDB):
             'taskid': taskid,
             'url': url,
             'result': result,
+            'content': result['ret'],
             'updatetime': time.time(),
         }
         return self._replace(tablename, **self._stringify(obj))

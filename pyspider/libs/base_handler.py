@@ -5,6 +5,7 @@
 #         http://binux.me
 # Created on 2014-02-16 23:12:48
 
+import hashlib
 import sys
 import inspect
 import functools
@@ -324,6 +325,8 @@ class BaseHandler(object):
         else:
             task['taskid'] = self.get_taskid(task)
 
+        task['callback_url'] = kwargs.pop('callback_url')
+
         if kwargs:
             raise TypeError('crawl() got unexpected keyword argument: %s' % kwargs.keys())
 
@@ -339,6 +342,15 @@ class BaseHandler(object):
     def get_taskid(self, task):
         '''Generate taskid by information of task md5(url) by default, override me'''
         return md5string(task['url'])
+        md5 = hashlib.md5()
+        md5.update(task['url'])
+        md5.update(task['headers'])
+        md5.update(task['callback'])
+        md5.update(task['user_agent'])
+        md5.update(task['cookies'])
+        md5.update(task['priority'])
+        md5.update(task['validate_cert'])
+        return md5.hexdigest()
 
     # apis
     def crawl(self, url, **kwargs):

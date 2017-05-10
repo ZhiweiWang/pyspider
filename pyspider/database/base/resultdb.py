@@ -13,6 +13,7 @@
         'url': str,  # new, not changeable
         'result': str,  # json string
         'updatetime': int,
+        'content': str,  # json string
     }
 }
 

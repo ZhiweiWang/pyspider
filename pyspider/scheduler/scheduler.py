@@ -27,6 +27,7 @@ class Project(object):
     '''
     project for scheduler
     '''
+
     def __init__(self, scheduler, project_info):
         '''
         '''
@@ -137,7 +138,7 @@ class Project(object):
 
 
 class Scheduler(object):
-    UPDATE_PROJECT_INTERVAL = 5 * 60
+    UPDATE_PROJECT_INTERVAL = 60
     default_schedule = {
         'priority': 0,
         'retries': 3,
@@ -153,13 +154,13 @@ class Scheduler(object):
     DELETE_TIME = 24 * 60 * 60
     DEFAULT_RETRY_DELAY = {
         0: 30,
-        1: 1*60*60,
-        2: 6*60*60,
-        3: 12*60*60,
-        '': 24*60*60
+        1: 1 * 60 * 60,
+        2: 6 * 60 * 60,
+        3: 12 * 60 * 60,
+        '': 24 * 60 * 60
     }
     FAIL_PAUSE_NUM = 10
-    PAUSE_TIME = 5*60
+    PAUSE_TIME = 5 * 60
     UNPAUSE_CHECK_NUM = 3
 
     TASK_PACK = 1
@@ -697,6 +698,11 @@ class Scheduler(object):
             return False
         application.register_function(new_task, 'newtask')
 
+        def on_request(task):
+            self.on_request(task)
+            return True
+        application.register_function(on_request, 'on_request')
+
         def send_task(task):
             '''dispatch task to fetcher'''
             self.send_task(task)
@@ -1157,6 +1163,7 @@ from pyspider.database.sqlite.sqlitebase import SQLiteMixin
 
 
 class ThreadBaseScheduler(Scheduler):
+
     def __init__(self, threads=4, *args, **kwargs):
         self.local = threading.local()
 
@@ -1237,7 +1244,7 @@ class ThreadBaseScheduler(Scheduler):
                         time.sleep(0.1)
                         continue
                     else:
-                        queue = self.thread_queues[random.randint(0, len(self.thread_queues)-1)]
+                        queue = self.thread_queues[random.randint(0, len(self.thread_queues) - 1)]
                 break
         else:
             queue = self.thread_queues[i % len(self.thread_queues)]

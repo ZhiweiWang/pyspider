@@ -23,7 +23,8 @@ psycopg2
 elasticsearch
 tblib
 #boto3
-git+git://github.com/boto/boto3.git@develop
+#git+git://github.com/boto/boto3.git@develop
+#html2text
 requests-toolbelt
 python-dateutil
-html2text
+apscheduler

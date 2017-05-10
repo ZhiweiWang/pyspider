@@ -52,6 +52,13 @@
         },  # finish
         'lastcrawltime': int,  # keep between request
         'updatetime': int,  # keep between request
+        'callback_success': int,
+        'callback_time': int,
+        'callback_time_next': int,
+        'callback_url': str,
+        # 'content': str,
+        'expire': int,
+        'expire_time': int,
     }
 }
 

@@ -7,6 +7,7 @@
 
 from __future__ import unicode_literals
 
+import re
 import os
 import sys
 import six
@@ -14,6 +15,7 @@ import copy
 import time
 import json
 import logging
+import redis
 import traceback
 import functools
 import threading
@@ -76,7 +78,10 @@ class Fetcher(object):
     phantomjs_proxy = None
     splash_endpoint = None
     splash_lua_source = open(os.path.join(os.path.dirname(__file__), "splash_fetcher.lua")).read()
-    robot_txt_age = 60*60  # 1h
+    robot_txt_age = 60 * 60  # 1h
+    RE_TITLE = re.compile(r'<title[^>]*>([^<]+)</title>')
+    RE_IPCHECK = re.compile(r'Robot Check')
+    redis_con = None
 
     def __init__(self, inqueue, outqueue, poolsize=100, proxy=None, async=True):
         self.inqueue = inqueue
@@ -238,6 +243,10 @@ class Fetcher(object):
             proxy_string = task_fetch['proxy']
         elif self.proxy and task_fetch.get('proxy', True):
             proxy_string = self.proxy
+        if proxy_string and ',' in proxy_string:
+            proxies = proxy_string.split(',')
+            retried = task['schedule'].get('retried', 0)
+            proxy_string = proxies[retried % len(proxies)]
         if proxy_string:
             if '://' not in proxy_string:
                 proxy_string = 'http://' + proxy_string
@@ -724,6 +733,31 @@ class Fetcher(object):
     def on_result(self, type, task, result):
         '''Called after task fetched'''
         status_code = result.get('status_code', 599)
+        fail_reason = None
+        if status_code != 200:
+            if status_code == 599:
+                fail_reason = 'timeout'
+            else:
+                fail_reason = 'error %d' % status_code
+        else:
+            found_title = self.RE_TITLE.findall(result['content'])
+            if found_title:
+                title = found_title[0]
+                if self.RE_IPCHECK.findall(title):
+                    fail_reason = 'ipcheck'
+        if fail_reason is not None:
+            task_fetch = task.get('fetch', {})
+            proxy_string = task_fetch.get('proxy', '')
+            if proxy_string and ',' in proxy_string:
+                proxies = proxy_string.split(',')
+                retried = task['schedule'].get('retried', 0)
+                proxy_string = proxies[retried % len(proxies)]
+            if proxy_string:
+                if self.redis_con is None:
+                    # redis_kwargs = self.inqueue.connection_pool.connection_kwargs.copy()
+                    # redis_kwargs['db'] = 3
+                    self.redis_con = redis.Redis(host='172.31.4.74', db=3)
+                self.redis_con.set(proxy_string, ','.join((str(int(time.time())), fail_reason)), 600)
         if status_code != 599:
             status_code = (int(status_code) / 100 * 100)
         self._cnt['5m'].event((task.get('project'), status_code), +1)

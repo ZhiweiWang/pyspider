@@ -5,24 +5,107 @@
 #         http://binux.me
 # Created on 2014-02-22 23:17:13
 
+import logging
 import os
 import sys
-import logging
-logger = logging.getLogger("webui")
-
+from apscheduler.schedulers.tornado import TornadoScheduler
+from flask import Flask
+from pyspider.fetcher import tornado_fetcher
 from six import reraise
 from six.moves import builtins
 from six.moves.urllib.parse import urljoin
-from flask import Flask
-from pyspider.fetcher import tornado_fetcher
+# from .job import check_failed
+
+logger = logging.getLogger("webui")
 
 if os.name == 'nt':
     import mimetypes
     mimetypes.add_type("text/css", ".css", True)
 
 
+def check_failed():
+    import json
+    import logging
+    import time
+    from itertools import chain
+    import requests
+    from .app import app
+    # from pyspider.processor.project_module import ProjectManager
+
+    projectdb = app.config['projectdb']
+    # project_manager = ProjectManager(projectdb, {})
+    taskdb = app.config['taskdb']
+    resultdb = app.config['resultdb']
+
+    now = time.time()
+
+    projects = projectdb.get_all(fields=['name', 'status', 'group'])
+    for project_info in projects:
+        if project_info['status'] in ['TODO', 'STOP']:
+            continue
+        logger.info(json.dumps(project_info))
+        project = project_info['name']
+        # module = project_manager.get(project)
+        # instance = module['instance']
+        # if not hasattr(instance, 'failed_callback'):
+        #     logger.info(json.dumps(instance))
+        #     continue
+
+        fail_tasks = taskdb.load_tasks(3, project)
+        done_tasks = taskdb.load_tasks(2, project)
+        tasks = chain(fail_tasks, done_tasks)
+        for task in tasks:
+            # logger.info(' '.join(('failed', task['url'], str(task['callback_success']))))
+            if task['callback_success'] == 1:
+                # logger.info('cancel callback for success')
+                continue
+            if task.get('callback_time_next', 0) > now:
+                # logger.info('delayed callback')
+                continue
+            if task['callback_url'] is None:
+                task['callback_success'] = 1
+                taskdb.update(project, task['taskid'], task)
+                return
+            # logger.info(json.dumps(task))
+            flag_failed = False
+            pre_time = task.get('callback_time', 0)
+            task['callback_time'] = now
+            result = resultdb.get(task['project'], task['taskid'])
+            # logger.info(json.dumps(result))
+            ret = {"url": task['url']}
+            if task['status'] == 2:
+                ret['meta'] = 'success'
+                ret['data'] = result['result']['ret'] if 'ret' in result['result'] else result['result']
+            else:
+                ret['meta'] = 'failed'
+                ret['data'] = task
+            callback_url = task['callback_url']
+            # logger.info('send callback to %s with json %s' % (callback_url, json.dumps(ret)))
+            try:
+                r = requests.post(callback_url, json=ret, timeout=5)
+                if r.status_code != requests.codes.ok:
+                    flag_failed = True
+            except Exception:
+                flag_failed = True
+            finally:
+                if flag_failed:
+                    logger.info('callback failed from %s' % callback_url)
+                    task['callback_success'] = 0
+                    if task.get('callback_time_next', 0) > 0:
+                        task['callback_time_next'] = now + min(
+                            3600,
+                            task['callback_time_next'] - pre_time) * 2
+                    else:
+                        task['callback_time_next'] = now + 1
+                else:
+                    logger.info('callback success from %s' % callback_url)
+                    task['callback_success'] = 1
+                taskdb.update(project, task['taskid'], task)
+
+
 class QuitableFlask(Flask):
     """Add quit() method to Flask object"""
+    redis_con = None
 
     @property
     def logger(self):
@@ -99,6 +182,10 @@ app.config.update({
     'queues': dict(),
     'process_time_limit': 30,
 })
+
+apsched = TornadoScheduler()
+apsched.add_job(check_failed, 'interval', seconds=10)
+apsched.start()
 
 
 def cdn_url_handler(error, endpoint, kwargs):

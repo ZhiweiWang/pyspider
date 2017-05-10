@@ -13,6 +13,7 @@ import socket
 import sys
 import time
 import traceback
+from urlparse import urlparse
 from flask import json, jsonify, render_template, request
 
 try:
@@ -23,6 +24,7 @@ except ImportError:
 from pyspider.libs import dataurl, sample_api_handler, sample_handler, utils
 from pyspider.libs.response import rebuild_response
 from pyspider.processor.project_module import ProjectFinder, ProjectManager
+import redis
 from .app import app
 
 default_task = {
@@ -34,126 +36,6 @@ default_task = {
     },
 }
 default_script = inspect.getsource(sample_handler)
-default_api_script = inspect.getsource(sample_api_handler)
-
-
-@app.route('/api/', methods=['POST'])
-def api():
-    data = request.get_json()
-    # app.logger.error(str(data))
-    project = data['project']
-    url = data['url']
-    parser = data.get('parser', 'page_parser')
-    fetch_type = data.get('fetch_type', None)
-    user_agent = data.get(
-        'user_agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.138 Safari/537.36')
-    headers = data.get('headers', {})
-    cookies = data.get('cookies', {})
-    extra_save = data.get('extra_save', {})
-
-    md5 = hashlib.md5()
-    md5.update(json.dumps(cookies))
-    md5.update(json.dumps(headers))
-    md5.update(user_agent)
-    md5.update(json.dumps(extra_save))
-
-    projectdb = app.config['projectdb']
-    if not projectdb.verify_project_name(project):
-        ret = {
-            'code': 400,
-            'error': 'project name is not allowed!',
-        }
-        return jsonify(ret)
-    # script = request.form['script']
-    project_info = projectdb.get(project, fields=['name', 'status', 'group'])
-    if project_info and 'lock' in projectdb.split_group(project_info.get('group')) \
-            and not login.current_user.is_active():
-        return app.login_response
-
-    updated_project_info = False
-    if project_info:
-        # app.logger.warning('get project', project_info)
-        if project_info['status'] != 'RUNNING':
-            info = {
-                # 'script': script,
-                'status': 'RUNNING',
-            }
-            projectdb.update(project, info)
-            updated_project_info = True
-    else:
-        script = (default_api_script
-                  .replace('__DATE__', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                  .replace('__PROJECT_NAME__', project)
-                  .replace('__START_URL__', url or '__START_URL__'))
-        info = {
-            'name': project,
-            'script': script,
-            'status': 'RUNNING',
-            'rate': app.config.get('max_rate', 1),
-            'burst': app.config.get('max_burst', 3),
-        }
-        projectdb.insert(project, info)
-        updated_project_info = True
-
-    if updated_project_info:
-        rpc = app.config['scheduler_rpc']
-        if rpc is not None:
-            try:
-                rpc.update_project()
-            except socket.error as e:
-                app.logger.warning('connect to scheduler rpc error: %r', e)
-                ret = {
-                    'code': 400,
-                    'error': 'rpc error',
-                }
-                return jsonify(ret)
-
-    project_manager = ProjectManager(projectdb, {})
-    module = project_manager.get(project)
-
-    instance = module['instance']
-    if not hasattr(instance, parser):
-        ret = {
-            'code': 404,
-            'error': 'request with wrong parser: %s' % parser,
-        }
-        return jsonify(ret)
-    instance._reset()
-    task = instance.crawl(url=url, callback=getattr(instance, parser),
-                          user_agent=user_agent, retries=5, age=3,
-                          headers=headers, cookies=cookies,
-                          save=extra_save, itag=md5.hexdigest(),
-                          fetch_type=fetch_type, validate_cert=False,
-                          )
-    task['status'] = 1
-    # app.logger.error(str(task))
-
-    taskdb = app.config['taskdb']
-    old_task = taskdb.get_task(project, task['taskid'])
-    if old_task:
-        taskdb.update(project, task['taskid'], task)
-    else:
-        taskdb.insert(project, task['taskid'], task)
-    # app.logger.error(str(new_task))
-    # # task2 = taskdb.get_task(project, task['taskid'])
-    # print(task2)
-
-    rpc = app.config['scheduler_rpc']
-    if rpc is not None:
-        try:
-            rpc.newtask(task)
-        except socket.error as e:
-            app.logger.warning('connect to scheduler rpc error: %r', e)
-            ret = {
-                'code': 400,
-                'error': 'rpc error',
-            }
-            return jsonify(ret)
-
-    ret = {
-        'code': 200
-    }
-    return jsonify(ret)
 
 
 @app.route('/debug/<project>', methods=['GET', 'POST'])

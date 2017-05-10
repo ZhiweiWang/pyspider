@@ -5,19 +5,20 @@
 #         http://binux.me
 # Created on 2012-11-06 11:50:13
 
-import math
-import logging
-import hashlib
-import datetime
-import socket
 import base64
-import warnings
+import datetime
+import hashlib
+import logging
+import math
+import socket
 import threading
+import warnings
 
 import six
 from six import iteritems
 
 md5string = lambda x: hashlib.md5(utf8(x)).hexdigest()
+md5object = lambda x: hashlib.md5(json.dumps(x)).hexdigest()
 
 
 class ReadOnlyDict(dict):

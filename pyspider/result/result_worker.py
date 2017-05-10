@@ -31,6 +31,7 @@ class ResultWorker(object):
         if 'taskid' in task and 'project' in task and 'url' in task:
             logger.info('result %s:%s %s -> %.30r' % (
                 task['project'], task['taskid'], task['url'], result))
+            logger.info(json.dumps(result))
             return self.resultdb.save(
                 project=task['project'],
                 taskid=task['taskid'],

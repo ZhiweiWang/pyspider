@@ -12,7 +12,7 @@ import json
 import sqlalchemy.exc
 
 from sqlalchemy import (create_engine, MetaData, Table, Column,
-                        String, Float, LargeBinary)
+                        String, Float, LargeBinary, Text)
 from sqlalchemy.engine.url import make_url
 from pyspider.database.base.resultdb import ResultDB as BaseResultDB
 from pyspider.libs import utils
@@ -28,6 +28,7 @@ class ResultDB(SplitTableMixin, BaseResultDB):
                            Column('url', String(1024)),
                            Column('result', LargeBinary),
                            Column('updatetime', Float(32)),
+                           Column('content', Text),
                            mysql_engine='InnoDB',
                            mysql_charset='utf8'
                            )
@@ -64,12 +65,18 @@ class ResultDB(SplitTableMixin, BaseResultDB):
             if isinstance(data['result'], bytearray):
                 data['result'] = str(data['result'])
             data['result'] = json.loads(data['result'])
+        if 'content' in data:
+            if isinstance(data['content'], bytearray):
+                data['content'] = str(data['content'])
+            data['content'] = json.loads(data['content'])
         return data
 
     @staticmethod
     def _stringify(data):
         if 'result' in data:
             data['result'] = utils.utf8(json.dumps(data['result']))
+        if 'content' in data:
+            data['content'] = utils.utf8(json.dumps(data['content']))
         return data
 
     def save(self, project, taskid, url, result):
@@ -81,6 +88,7 @@ class ResultDB(SplitTableMixin, BaseResultDB):
             'taskid': taskid,
             'url': url,
             'result': result,
+            'content': result['ret'],
             'updatetime': time.time(),
         }
         if self.get(project, taskid, ('taskid', )):
